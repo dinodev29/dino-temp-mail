@@ -1,0 +1,67 @@
+// Dino Temp Mail backend
+const express = require('express');
+const cors = require('cors');
+const app = express();
+
+app.use(express.json());
+app.use(cors());
+app.use(express.static('public')); // serve frontend files (index.html etc.)
+
+const PORT = process.env.PORT || 3000;
+
+// In-memory storage for temp emails and their messages
+const inboxes = {};
+
+// Root route (health check)
+app.get('/', (req, res) => {
+    res.send("Dino temp mail backend running");
+});
+
+// Generate a temporary email
+app.get('/generate', (req, res) => {
+    const randomId = Math.random().toString(36).substring(2, 10);
+    const tempEmail = `${randomId}@dino-temp-mail.onrender.com`;
+    inboxes[tempEmail] = []; // initialize empty inbox
+    res.json({ email: tempEmail });
+});
+
+// Send a test email to a temp email
+app.post('/send-mail', (req, res) => {
+    const { to, subject, message } = req.body;
+
+    if (!to || !subject || !message) {
+        return res.status(400).json({ error: "Missing fields" });
+    }
+
+    if (!inboxes[to]) inboxes[to] = []; // initialize inbox if missing
+
+    inboxes[to].push({
+        from: "test@dino-temp-mail.onrender.com",
+        subject,
+        message,
+        time: new Date().toISOString()
+    });
+
+    res.json({ status: "Email sent to " + to });
+});
+
+// Check inbox for a temp email
+app.get('/inbox', (req, res) => {
+    const email = req.query.email;
+    if (!email) return res.status(400).json({ error: "Email query missing" });
+
+    const messages = inboxes[email] || [];
+    res.json(messages);
+});
+
+// Delete temp email
+app.delete('/delete', (req, res) => {
+    const email = req.query.email;
+    if (!email) return res.status(400).json({ error: "Email query missing" });
+
+    delete inboxes[email];
+    res.json({ status: "Deleted " + email });
+});
+
+// Start the server
+app.listen(PORT, () => console.log("Server running on port " + PORT));
